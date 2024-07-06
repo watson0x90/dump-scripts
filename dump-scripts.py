@@ -5,14 +5,15 @@ import os
 import hashlib
 import argparse
 
-
 """
 Simple python utility to dump all scripts from a given page.
-By: @SamuelAnttila
+By: @SamuelAnttila (Original Author)
+Updates: @watson0x90
+Version 1.1
 License: MIT
 """
 
-def download_script(url,downloads_dir_path,headers={},prettify=False):
+def download_script(url, downloads_dir_path, headers={}, prettify=False):
     """Download script into given directory. Note: Does nothing to avoid name collisions"""
 
     # /asdf/file.js?123=123 -> file.js
@@ -23,17 +24,17 @@ def download_script(url,downloads_dir_path,headers={},prettify=False):
         # we can't stream if we want to prettify since we need the full file contents
         res = requests.get(url, headers=headers)
         code = jsbeautifier.beautify(res.text)
-        with open(os.path.join(downloads_dir_path,local_filename), 'w+') as f:
+        with open(os.path.join(downloads_dir_path, local_filename), 'w+') as f:
             f.write(code)
     else:
         # streaming file download because putting everything in memory at once is silly if we don't have to
         with requests.get(url, stream=True, headers=headers) as r:
             r.raise_for_status()
-            with open(os.path.join(downloads_dir_path,local_filename), 'wb+') as f:
+            with open(os.path.join(downloads_dir_path, local_filename), 'wb+') as f:
                 for chunk in r.iter_content(chunk_size=8192):
                     # If you have chunk encoded response uncomment if
                     # and set chunk_size parameter to None.
-                    #if chunk:
+                    # if chunk:
                     f.write(chunk)
     return local_filename
 
@@ -44,40 +45,53 @@ def ensure_dir(file_path):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+
+def parse_cookies(cookie_string):
+    """Parse cookies from a string into a dictionary"""
+    cookies = {}
+    for cookie in cookie_string.split(';'):
+        key, value = cookie.strip().split('=', 1)
+        cookies[key] = value
+    return cookies
+
+
 if __name__ == "__main__":
     downloads_dirname = "scripts/"
     curr_path = os.path.dirname(os.path.realpath(__file__))
-    downloads_path = os.path.join(curr_path,downloads_dirname)
+    downloads_path = os.path.join(curr_path, downloads_dirname)
     ensure_dir(downloads_path)
 
     parser = argparse.ArgumentParser(description='Download all scripts from a website into a scripts/ folder underneath this script')
     parser.add_argument('url', metavar='URL', type=str, help='The url (including schema) from which to dump scripts')
     parser.add_argument('--useragent', dest='useragent', type=str, default="Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36", help='User agent to use when making requests')
     parser.add_argument('--prettify', dest='prettify', action="store_true", default=False, help='If enabled uses jsbeautify to prettify/deobfuscate all downloaded javascript. Will fail if "jsbeautifier" not installed with pip. Recommended if you\'re dealing with minified files.')
+    parser.add_argument('--cookies', dest='cookies', type=str, help='Cookies to include in the request, formatted as they appear in the HTTP headers')
     args = parser.parse_args()
+
+    headers = {"User-Agent": args.useragent}
+    if args.cookies:
+        cookies = parse_cookies(args.cookies)
+        headers["Cookie"] = args.cookies
 
     if args.prettify:
         import jsbeautifier # only necessary if we actually want to use this functionality
 
-    res = requests.get(args.url,headers={"User-Agent":args.useragent})
-    soup = bs(res.text,features="html.parser")
+    res = requests.get(args.url, headers=headers)
+    soup = bs(res.text, features="html.parser")
     for script in soup.find_all("script"):
         if "src" in script.attrs:
-            #externally loaded script
+            # externally loaded script
             download_url = requests.compat.urljoin(args.url, script.attrs["src"])
-            print(f'Downloaded {download_script(download_url,downloads_path,headers={"User-Agent":args.useragent},prettify=args.prettify)}')
+            print(f'Downloaded {download_script(download_url, downloads_path, headers=headers, prettify=args.prettify)}')
         else:
-            #inline script
+            # inline script
             print(script.text)
             m = hashlib.sha256()
             m.update(script.text.encode("utf32"))
             local_filename = m.hexdigest() # To give all inline scripts a unique name we take the hash of its contents. Only identical scripts should collide.
-            with open(os.path.join(downloads_path,local_filename)+".js", 'w+') as f:
+            with open(os.path.join(downloads_path, local_filename)+".js", 'w+') as f:
                 if not args.prettify:
                     f.write(script.text)
                 else:
                     f.write(jsbeautifier.beautify(script.text))
     print("Done downloading scripts. They should be under the 'scripts/' folder.")
-
-
-

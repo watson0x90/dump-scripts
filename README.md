@@ -5,7 +5,7 @@ Dumps all scripts on a page to a local directory, including inline scripts.
 
 ## Usage
 
-`usage: dump-scripts.py [-h] [--useragent USERAGENT] [--prettify] URL`
+`usage: dump-scripts.py [-h] [--useragent USERAGENT] [--prettify] [--cookies COOKIES] URL`
 
 e.g. 
 
@@ -14,6 +14,8 @@ e.g.
 `python3 dump-scripts.py --useragent="haxbot v1337" https://wikipedia.com`
 
 `python3 dump-scripts.py --prettify https://www.example.com`
+
+`python3 dump-scripts.py --cookies "sessionid=abc123; csrftoken=xyz789" https://example.com`
 
 After which you will have a folder called "scripts" underneath the directory the dump-scripts.py file resides in containing all scripts found on said page.
 
